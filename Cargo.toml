@@ -6,3 +6,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rand = "0.7.0"
+rand_distr = "0.2.2"
+ndarray = "0.12.1"
+glob = "0.2"
+rayon = "1.0"
+libc = "0.2"
+matrixmultiply = "0.2.2"
+intel-mkl-src = { version="0.2.5", optional = true, default-features = true }
+num-traits = "0.2"
+num = "0.2"
+rustc-hash = "1.0.1"
+hashbrown = "0.6"
+crossbeam = "0.7.2"
+smallvec = "1.2.0"
+
+[features]
+mkl = ["intel-mkl-src"]
+
+[lib]
+name = "autograd"
+path = "src/lib.rs"
