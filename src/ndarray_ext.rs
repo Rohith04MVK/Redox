@@ -19,7 +19,7 @@ use rand_xorshift;
 pub(crate) fn as_shape<T: Float>(x: &NdArrayView<T>) -> Vec<usize> {
     x.iter().map(|a| a.to_usize().unwrap()).collect()
 }
-
+ 
 #[inline]
 pub(crate) fn expand_dims<T: Float>(x: NdArray<T>, axis: usize) -> NdArray<T> {
     let mut shape = x.shape().to_vec();
