@@ -116,3 +116,187 @@ pub(crate) fn scalar_shape<T: Float>() -> NdArray<T> {
 pub(crate) fn is_scalar_shape(shape: &[usize]) -> bool {
     shape == [] || shape == [0]
 }
+
+/// A collection of array generator functions.
+pub mod array_gen {
+    use super::*;
+    use rand::distributions::Distribution;
+    use rand::rngs::ThreadRng;
+    use rand::{self, Rng};
+    use rand_distr;
+    use std::marker::PhantomData;
+    use std::sync::Mutex;
+
+    /// Helper structure to create ndarrays whose elements are pseudorandom numbers.
+    ///
+    /// This is actually a wrapper of an arbitrary `rand::Rng`, the default is `rand::rngs::ThreadRng`.
+    ///
+    /// ```
+    /// use autograd as ag;
+    /// use rand;
+    ///
+    /// type NdArray = ndarray::Array<f32, ndarray::IxDyn>;
+    ///
+    /// let my_rng = ag::ndarray_ext::ArrayRng::new(rand::thread_rng());
+    /// let random: NdArray = my_rng.standard_normal(&[2, 3]);
+    ///
+    /// // The default is `ThreadRng` (seed number is not fixed).
+    /// let default = ag::ndarray_ext::ArrayRng::default();
+    /// let random: NdArray = default.standard_normal(&[2, 3]);
+    /// ```
+    pub struct ArrayRng<T: Float, R: Rng = ThreadRng> {
+        phantom: PhantomData<T>,
+        rng: Mutex<R>,
+    }
+
+    impl<T: Float> Default for ArrayRng<T> {
+        /// Initialize with `rand::rngs::ThreadRng`.
+        fn default() -> Self {
+            ArrayRng {
+                phantom: PhantomData,
+                rng: Mutex::new(rand::thread_rng()),
+            }
+        }
+    }
+
+    impl<T: Float, R: Rng> ArrayRng<T, R> {
+        /// Creates `ArrRng` with pre-instantiated `Rng`.
+        pub fn new(rng: R) -> Self {
+            ArrayRng {
+                phantom: PhantomData,
+                rng: Mutex::new(rng),
+            }
+        }
+
+        /// Generates `ndarray::Array<T, ndarray::IxDyn>` whose elements are random numbers.
+        fn gen_random_array<I>(&self, shape: &[usize], dist: I) -> NdArray<T>
+        where
+            I: Distribution<f64>,
+        {
+            let size: usize = shape.into_iter().cloned().product();
+            let mut rng = self.rng.lock().unwrap();
+            unsafe {
+                let mut buf = crate::uninitialized_vec(size);
+                for i in 0..size {
+                    *buf.get_unchecked_mut(i) = T::from(dist.sample(&mut *rng)).unwrap();
+                }
+                NdArray::from_shape_vec(shape, buf).unwrap()
+            }
+        }
+
+        /// Creates an ndarray sampled from the normal distribution with given params.
+        pub fn random_normal(
+            &self,
+            shape: &[usize],
+            mean: f64,
+            stddev: f64,
+        ) -> ndarray::Array<T, ndarray::IxDyn> {
+            let normal = rand_distr::Normal::new(mean, stddev).unwrap();
+            self.gen_random_array(shape, normal)
+        }
+
+        /// Creates an ndarray sampled from the uniform distribution with given params.
+        pub fn random_uniform(
+            &self,
+            shape: &[usize],
+            min: f64,
+            max: f64,
+        ) -> ndarray::Array<T, ndarray::IxDyn> {
+            let range = rand_distr::Uniform::new(min, max);
+            self.gen_random_array(shape, range)
+        }
+
+        /// Creates an ndarray sampled from the standard normal distribution.
+        pub fn standard_normal(&self, shape: &[usize]) -> ndarray::Array<T, ndarray::IxDyn> {
+            let normal = rand_distr::Normal::new(0., 1.).unwrap();
+            self.gen_random_array(shape, normal)
+        }
+
+        /// Creates an ndarray sampled from the standard uniform distribution.
+        pub fn standard_uniform(&self, shape: &[usize]) -> ndarray::Array<T, ndarray::IxDyn> {
+            let dist = rand_distr::Uniform::new(0., 1.);
+            self.gen_random_array(shape, dist)
+        }
+
+        /// Glorot normal initialization. (a.k.a. Xavier normal initialization)
+        pub fn glorot_normal(&self, shape: &[usize]) -> ndarray::Array<T, ndarray::IxDyn> {
+            assert_eq!(shape.len(), 2);
+            let s = 1. / (shape[0] as f64).sqrt();
+            let normal = rand_distr::Normal::new(0., s).unwrap();
+            self.gen_random_array(shape, normal)
+        }
+
+        /// Glorot uniform initialization. (a.k.a. Xavier uniform initialization)
+        pub fn glorot_uniform(&self, shape: &[usize]) -> ndarray::Array<T, ndarray::IxDyn> {
+            assert_eq!(shape.len(), 2);
+            let s = (6. / shape[0] as f64).sqrt();
+            let uniform = rand_distr::Uniform::new(-s, s);
+            self.gen_random_array(shape, uniform)
+        }
+
+        /// Creates an ndarray sampled from the bernoulli distribution with given params.
+        pub fn bernoulli(&self, shape: &[usize], p: f64) -> ndarray::Array<T, ndarray::IxDyn> {
+            let dist = rand_distr::Uniform::new(0., 1.);
+            let mut rng = self.rng.lock().unwrap();
+            let size: usize = shape.into_iter().cloned().product();
+            unsafe {
+                let mut buf = crate::uninitialized_vec(size);
+                for i in 0..size {
+                    let val = dist.sample(&mut *rng);
+                    *buf.get_unchecked_mut(i) = T::from(i32::from(val < p)).unwrap();
+                }
+                NdArray::from_shape_vec(shape, buf).unwrap()
+            }
+        }
+
+        /// Creates an ndarray sampled from the exponential distribution with given params.
+        pub fn exponential(
+            &self,
+            shape: &[usize],
+            lambda: f64,
+        ) -> ndarray::Array<T, ndarray::IxDyn> {
+            let dist = rand_distr::Exp::new(lambda).unwrap();
+            self.gen_random_array(shape, dist)
+        }
+
+        /// Creates an ndarray sampled from the log normal distribution with given params.
+        pub fn log_normal(
+            &self,
+            shape: &[usize],
+            mean: f64,
+            stddev: f64,
+        ) -> ndarray::Array<T, ndarray::IxDyn> {
+            let dist = rand_distr::LogNormal::new(mean, stddev).unwrap();
+            self.gen_random_array(shape, dist)
+        }
+
+        /// Creates an ndarray sampled from the gamma distribution with given params.
+        pub fn gamma(
+            &self,
+            shape: &[usize],
+            shape_param: f64,
+            scale: f64,
+        ) -> ndarray::Array<T, ndarray::IxDyn> {
+            let dist = rand_distr::Gamma::new(shape_param, scale).unwrap();
+            self.gen_random_array(shape, dist)
+        }
+    }
+
+    #[inline]
+    /// Creates an ndarray filled with 0s.
+    pub fn zeros<T: Float>(shape: &[usize]) -> ndarray::Array<T, ndarray::IxDyn> {
+        NdArray::from_elem(shape, T::zero())
+    }
+
+    #[inline]
+    /// Creates an ndarray filled with 1s.
+    pub fn ones<T: Float>(shape: &[usize]) -> ndarray::Array<T, ndarray::IxDyn> {
+        NdArray::from_elem(shape, T::one())
+    }
+
+    #[inline]
+    /// Creates an ndarray object from a scalar.
+    pub fn from_scalar<T: Float>(val: T) -> ndarray::Array<T, ndarray::IxDyn> {
+        NdArray::from_elem(ndarray::IxDyn(&[]), val)
+    }
+}

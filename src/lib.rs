@@ -25,7 +25,6 @@ extern crate rustc_hash;
 extern crate serde_json;
 pub(crate) extern crate smallvec;
 extern crate uuid;
-#[macro_use]
 extern crate serde_derive;
 extern crate approx;
 extern crate special;
