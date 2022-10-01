@@ -132,16 +132,16 @@ pub mod array_gen {
     /// This is actually a wrapper of an arbitrary `rand::Rng`, the default is `rand::rngs::ThreadRng`.
     ///
     /// ```
-    /// use autograd as ag;
+    /// use redox as rd;
     /// use rand;
     ///
     /// type NdArray = ndarray::Array<f32, ndarray::IxDyn>;
     ///
-    /// let my_rng = ag::ndarray_ext::ArrayRng::new(rand::thread_rng());
+    /// let my_rng = rd::ndarray_ext::ArrayRng::new(rand::thread_rng());
     /// let random: NdArray = my_rng.standard_normal(&[2, 3]);
     ///
     /// // The default is `ThreadRng` (seed number is not fixed).
-    /// let default = ag::ndarray_ext::ArrayRng::default();
+    /// let default = rd::ndarray_ext::ArrayRng::default();
     /// let random: NdArray = default.standard_normal(&[2, 3]);
     /// ```
     pub struct ArrayRng<T: Float, R: Rng = ThreadRng> {
