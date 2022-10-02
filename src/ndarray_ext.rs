@@ -117,6 +117,30 @@ pub(crate) fn is_scalar_shape(shape: &[usize]) -> bool {
     shape == [] || shape == [0]
 }
 
+#[inline]
+pub(crate) fn shape_of_view<T: Float>(x: &NdArrayView<T>) -> NdArray<T> {
+    let shape = x
+        .shape()
+        .iter()
+        .map(|&a| T::from(a).unwrap())
+        .collect::<Vec<T>>();
+    let rank = shape.len();
+    // safe unwrap
+    NdArray::from_shape_vec(ndarray::IxDyn(&[rank]), shape).unwrap()
+}
+
+#[inline]
+pub(crate) fn shape_of<T: Float>(x: &NdArray<T>) -> NdArray<T> {
+    let shape = x
+        .shape()
+        .iter()
+        .map(|&a| T::from(a).unwrap())
+        .collect::<Vec<T>>();
+    let rank = shape.len();
+    // safe unwrap
+    NdArray::from_shape_vec(ndarray::IxDyn(&[rank]), shape).unwrap()
+}
+
 /// A collection of array generator functions.
 pub mod array_gen {
     use super::*;
